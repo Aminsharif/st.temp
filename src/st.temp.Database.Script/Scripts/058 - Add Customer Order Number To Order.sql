@@ -1,0 +1,2 @@
+﻿ALTER TABLE Orders
+	ADD CustomerOrderNumber NVARCHAR(255) NOT NULL DEFAULT ''

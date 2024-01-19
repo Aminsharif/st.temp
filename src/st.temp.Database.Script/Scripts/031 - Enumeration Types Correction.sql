@@ -1,0 +1,63 @@
+﻿Alter table KeyingSystems
+    drop constraint CHK_KeyEnumeration
+go
+        sp_rename 'KeyingSystems.KeyEnumerationType', 'KeyNumberingType', 'COLUMN'
+Go
+alter table KeyingSystems
+    add constraint CHK_KeyNumberingType CHECK (KeyingSystems.KeyNumberingType between 0 and 3)
+GO
+Drop PROCEDURE CreateKeyingSystem;
+
+Go
+Create Procedure CreateKeyingSystem(
+    @keyingSystemTypeId uniqueidentifier,
+    @keyingSystemKindId uniqueidentifier,
+    @createdBy nvarchar(255),
+    @keyNumberingType int,
+    @keyingSystemId uniqueidentifier OUTPUT)
+As
+BEGIN
+    Declare @keyingSystemNumber int
+    exec GenerateKeyingSystemNumber @keyingSystemTypeId,
+         @calculatedKeyingSystemNumber = @keyingSystemNumber OUTPUT
+
+    SELECT @keyingSystemId = NEWID();
+
+    Insert into KeyingSystems (Id, KeyingSystemTypeId, KeyingSystemKindId, KeyingSystemNumber, CreatedBy,
+                               KeyNumberingType, Created)
+    VALUES (@keyingSystemId, @keyingSystemTypeId, @keyingSystemKindId, @keyingSystemNumber, @createdBy,
+            @keyNumberingType, GETUTCDATE())
+END
+GO
+Drop PROCEDURE UpdateKeyingSystem;
+Go
+Create Procedure UpdateKeyingSystem(
+    @keyingSystemId uniqueidentifier,
+    @keyingSystemTypeId uniqueidentifier,
+    @keyingSystemKindId uniqueidentifier,
+    @keyNumberingType int,
+    @updatedBy nvarchar(255))
+As
+BEGIN
+    Declare @keyingSystemNumber nvarchar(255)
+    Declare @originalKeyingSystemTypeId uniqueidentifier
+
+    Select @originalKeyingSystemTypeId = KeyingSystemTypeId,
+           @keyingSystemNumber = KeyingSystemNumber
+    from KeyingSystems
+    where Id = @keyingSystemId
+
+    If @originalKeyingSystemTypeId <> @keyingSystemTypeId
+        exec GenerateKeyingSystemNumber @keyingSystemTypeId,
+             @calculatedKeyingSystemNumber = @keyingSystemNumber OUTPUT
+
+    UPDATE KeyingSystems
+    set KeyingSystemKindId = @keyingSystemKindId,
+        KeyingSystemTypeId = @keyingSystemTypeId,
+        KeyingSystemNumber = @keyingSystemNumber,
+        UpdatedBy          = @updatedBy,
+        KeyNumberingType   = @keyNumberingType,
+        LastUpdated        = GETUTCDATE()
+    where Id = @keyingSystemId
+END
+Go
